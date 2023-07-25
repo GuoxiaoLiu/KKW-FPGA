@@ -176,7 +176,7 @@ architecture behavorial of picnic3_sign is
   --signal Dig_c_DN, Dig_c_DP : DIG_C_ARR;
   type DIG_V_ARR is  array(0 to 1) of std_logic_vector(DIGEST_L - 1 downto 0);
   signal Dig_v_DN, Dig_v_DP : DIG_V_ARR;
-  signal Input_DN, Input_DP, Input1_DN, Input1_DP : std_logic_vector(N - 1 downto 0);
+  signal Input_DN, Input_DP : std_logic_vector(N - 1 downto 0); --signal Input_DN, Input_DP, Input1_DN, Input1_DP : std_logic_vector(N - 1 downto 0);
   signal Input_bram_DN, Input_bram_DP : std_logic_vector(T - 1 downto 0);
   --signal Msgs_in_DP, Msgs_in_DN : MSGS_IN_ARR;
   signal Tree_DN, Tree_DP : std_logic_vector(numnodes - 1 downto 0);
@@ -184,7 +184,7 @@ architecture behavorial of picnic3_sign is
   signal P_DN, P_DP : std_logic_vector(2 * tau - 1 downto 0);
   signal ET_DN, ET_DP : integer range 0 to P - 1;
   signal Aux_DN, Aux_DP : std_logic_vector(R * N - 1 downto 0);
-  signal Msgs_DN, Msgs_DP, Msgs1_DN, Msgs1_DP : R_N_ARR;
+  signal Msgs_DN, Msgs_DP, Msgs1_DN, Msgs1_DP, Msgs2_DN, Msgs2_DP : R_N_ARR;
   signal ComC_DN, ComC_DP : DIGE_ARR;
 
   -- components
@@ -457,7 +457,7 @@ begin
     Rst_RI      => rst,
     Start_SI    => commV_start(0),
     Inputs_DI   => Input_DP,
-    Ms_DI       => Msgs_DP,
+    Ms_DI       => Msgs1_DP,
     Finish_SO   => commV_finish(0),
     Commit_DO   => commV_out
   );
@@ -467,8 +467,8 @@ begin
     Clk_CI      => clk,
     Rst_RI      => rst,
     Start_SI    => commV_start(1),
-    Inputs_DI   => Input1_DP,
-    Ms_DI       => Msgs1_DP,
+    Inputs_DI   => Input_DP,
+    Ms_DI       => Msgs2_DP,
     Finish_SO   => commV_finish(1),
     Commit_DO   => commV1_out
   );
@@ -671,7 +671,7 @@ begin
     Ready_SO           => fifo_ready_out
   );
   -- output logic
-  process (State_DP, sdi_valid, sdi_data, pdi_valid, pdi_data, lowmc_finish, tape_finish, commC_finish, commH_finish, Sig_Len_out, commV1_out, salt_out, pdo_ready, Chal_out, Counter_DP, ComC_DP, Msgs1_DP, Msgs_DP, Aux_DP, Counter_Trans_DP, PC_DP, Tape_last_DP, Tape_DP, tape_out, tape_last_out, PP_DP, MSG_DP, SK_DP, seed_i_douta, seed_i_doutb, seed_out, Seed_DP, Seed_com_DP, seed_ready, tape_out, msgs_out, lowmc_cipher, input_out, aux_out, commV_finish, commV_out, Input1_DP, Input_DP, Input_bram_DP, commC_out, commc_douta, commc_doutb, aux_douta, aux_doutb, commv_douta, commv_doutb, msgs_douta, msgs_doutb, input_douta, input_doutb, Dig_v_DP, cv_finish, CV_out, fifo_ready_out, fifo_out, fifo_valid_out, Tree_DP, C_DP, P_DP, ET_DP, Counter_tau_DP, Tree_out, Chal_C, Chal_P)
+  process (State_DP, sdi_valid, sdi_data, pdi_valid, pdi_data, lowmc_finish, tape_finish, commC_finish, commH_finish, Sig_Len_out, commV1_out, salt_out, pdo_ready, Chal_out, Counter_DP, ComC_DP, Msgs2_DP, Msgs1_DP, Msgs_DP, Aux_DP, Counter_Trans_DP, PC_DP, Tape_last_DP, Tape_DP, tape_out, tape_last_out, PP_DP, MSG_DP, SK_DP, seed_i_douta, seed_i_doutb, seed_out, Seed_DP, Seed_com_DP, seed_ready, tape_out, msgs_out, lowmc_cipher, input_out, aux_out, commV_finish, commV_out, Input_DP, Input_bram_DP, commC_out, commc_douta, commc_doutb, aux_douta, aux_doutb, commv_douta, commv_doutb, msgs_douta, msgs_doutb, input_douta, input_doutb, Dig_v_DP, cv_finish, CV_out, fifo_ready_out, fifo_out, fifo_valid_out, Tree_DP, C_DP, P_DP, ET_DP, Counter_tau_DP, Tree_out, Chal_C, Chal_P)
     variable ET_VEC : std_logic_vector(1 downto 0);
     variable ET : integer range 0 to P - 1;
   begin
@@ -690,7 +690,7 @@ begin
     PP_DN <= PP_DP;
     MSG_DN <= MSG_DP;
     Input_DN <= Input_DP;
-    Input1_DN <= Input1_DP;
+    --Input1_DN <= Input1_DP;
     --Input2_DN <= Input2_DP;
     Input_bram_DN <= Input_bram_DP;
     --Msgs_in_DN <= Msgs_in_DP;
@@ -707,6 +707,7 @@ begin
     Tape_last_DN <= Tape_last_DP;
     Msgs_DN <= Msgs_DP;
     Msgs1_DN <= Msgs1_DP;
+    Msgs2_DN <= Msgs2_DP;
     ComC_DN <= ComC_DP;
 
     pdo_data <= (others => '0');
@@ -901,6 +902,8 @@ begin
           end loop;
           if Counter_DP mod 2 = 0 then
             Msgs1_DN <= Msgs_out;
+          else
+            Msgs2_DN <= Msgs_out;
           end if;
           Msgs_DN <= Msgs_out;
           Tape_DN <= Tape_out;
@@ -917,13 +920,13 @@ begin
           aux_start <= '1';
         end if;
         aux_start <= '1';
-        if Counter_DP >= 4 and ((Counter_DP mod 2) = 0) and (Counter_DP <= T + 3) then
+        if Counter_DP >= 5 and ((Counter_DP mod 2) = 1) and (Counter_DP <= T + 4) then
           CV_next <= '1';
         end if;
         if Counter_DP mod 2 = 0 then
-          commV_start(1) <= '1';
-        else
           commV_start(0) <= '1';
+        else
+          commV_start(1) <= '1';
         end if;
         seed_next <= '1';
       when picnic_bram0 =>
@@ -959,9 +962,9 @@ begin
       when picnic_judge1 =>
         if commC_finish = '1' and lowmc_finish = '1' and commH_finish = '1' then
           Input_DN <= input_out xor SK_DP;
-          if Counter_DP mod 2 = 0 then
-            Input1_DN <= input_out xor SK_DP;
-          end if;
+--          if Counter_DP mod 2 = 0 then
+--            Input1_DN <= input_out xor SK_DP;
+--          end if;
           if Counter_DP >= 1 then
             aux_addra <= std_logic_vector(to_unsigned(9 * (Counter_DP - 1) + 2 * 4, AUX_ADDR_WIDTH));
             aux_dina <= aux_out(R * N - 2 * 4 * AUX_DATA_WIDTH - 1 downto 0) & x"000000000000000";
@@ -1512,7 +1515,7 @@ begin
         --Dig_c_DP            <= (others => (others => '0'));
         Dig_v_DP            <= (others => (others => '0'));
         Input_DP            <= (others => '0');
-        Input1_DP <= (others => '0');
+        --Input1_DP <= (others => '0');
         Input_bram_DP       <= (others => '0');
         --Msgs_in_DP            <= (others => (others => '0'));
         Tree_DP <= (others => '0');
@@ -1524,6 +1527,7 @@ begin
         Tape_last_DP <= (others => '0');
         Msgs_DP <= (others => (others => '0'));
         Msgs1_DP <= (others => (others => '0'));
+        Msgs2_DP <= (others => (others => '0'));
         -- Msgs2_DP <= (others => (others => '0'));
         ComC_DP <= (others => (others => '0'));
       else
@@ -1540,7 +1544,7 @@ begin
         --Dig_c_DP            <= Dig_c_DN;
         Dig_v_DP           <= Dig_v_DN;
         Input_DP           <= Input_DN;
-        Input1_DP           <= Input1_DN;
+        --Input1_DP           <= Input1_DN;
         --Input2_DP           <= Input2_DN;
         Input_bram_DP      <= Input_bram_DN;
         --Msgs_in_DP            <= Msgs_in_DN;
@@ -1554,6 +1558,7 @@ begin
         Tape_last_DP <= Tape_last_DN;
         Msgs_DP <= Msgs_DN;
         Msgs1_DP <= Msgs1_DN;
+        Msgs2_DP <= Msgs2_DN;
         -- Msgs2_DP <= (others => (others => '0'));
         ComC_DP <= ComC_DN;
       end if;
