@@ -16,3 +16,6 @@ The different folders and files are:
 
 Testbench:
 - You can use KKW-4-L1-verify and KKW-4-L5-verify to check the signing and verification.
+
+Architecture:
+- In the figure, the LowMC-MPC core should execute offline first, and then execute online. The seed includes the construction of Step 1 and the pipeline of Step 2, and $H_{on}$ includes Step 3 and the pipeline of Step 2.
