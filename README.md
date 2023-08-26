@@ -1,6 +1,7 @@
 The different folders and files are:
 
 - `High-Performance_Implementation_of_MPCitH_and_Picnic3.pdf`: Anonymous papers submitted by us.
+- `overallArchitecture.pdf`: The architecture diagram of Picnic3 core, but the input and output are simplified.
 - `KKW-4-L1-V1`: Picnic3 signing algorithm version 1 with security level L1 implemented in Section 5 of this paper.
 - `KKW-4-L1-V2`: Picnic3 signing algorithm version 2 with security level L1 implemented in Section 5 of this paper.
 - `KKW-4-L1-V3`: Picnic3 signing algorithm version 3 with security level L1 implemented in Section 5 of this paper.
