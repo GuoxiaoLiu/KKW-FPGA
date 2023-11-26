@@ -20,7 +20,7 @@ architecture Behavioral of test_bench is
     signal dbg_start : std_logic := '0';
     signal dbg_end : std_logic := '0';
 
-    type state is (init, start, start0, start1, start2, start3, start4, start5,
+    type state is (init, rand0, rand1, start, start0, start1, start2, start3, start4, start5,
         start6, start7, start8, start9, start10, start11, start12, start13, start14, start15, start16, s_end);
     signal state_dp : state;
     signal state_dn : state;
@@ -29,7 +29,20 @@ architecture Behavioral of test_bench is
     constant KE : std_logic_vector(N - 1 downto 0) := "010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010";
     constant ME : std_logic_vector(512 - 1 downto 0) := "00000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001";
     
-
+    component lowmc is
+      port(
+        -- Clock and Reset
+        signal Clk_CI   : in std_logic;
+        signal Rst_RI   : in std_logic;
+        -- Input signals
+        signal Plain_DI  : in std_logic_vector(N - 1 downto 0);
+        signal Key_DI     : in std_logic_vector(N - 1 downto 0);
+        signal Init_SI   : in std_logic;
+        -- Output signals
+        signal Finish_SO : out std_logic;
+        signal Cipher_DO : out std_logic_vector(N - 1 downto 0)
+      );
+    end component;
     component picnic3_sign is
         port(
             -- Clock and Reset
@@ -131,7 +144,24 @@ architecture Behavioral of test_bench is
     signal tmp_douta, tmp_doutb : std_logic_vector(64 - 1 downto 0);
 
     signal Counter_DN, Counter_DP : integer range 0 to T;
+    signal Rand_DN, Rand_DP : std_logic_vector(N - 1 downto 0);
+    
+    
+    signal lowmc_plain, lowmc_key, lowmc_cipher : std_logic_vector(N - 1 downto 0);
+    signal lowmc_inst, lowmc_finish : std_logic;
 begin
+
+
+    dbf_lowmc : lowmc
+        port map (
+            Clk_CI => Clk_CI,
+            Rst_RI => Rst_RI,
+            Plain_DI => lowmc_plain,
+            Key_DI => lowmc_key,
+            Init_SI => lowmc_inst,
+            Finish_SO => lowmc_finish,
+            Cipher_DO => lowmc_cipher
+        );
     dbg_picnic_sign: picnic3_sign
         port map (
             clk => Clk_CI,
@@ -183,7 +213,7 @@ begin
         );
      
         
-    process (state_dp, dbg_end, pdi_ready, sdi_ready, Counter_DP, pdo_valid, status_ready, verify_pdi_ready, verify_pdo_valid, verify_status_ready, pdo_data, pdo_last, tmp_douta, tmp_doutb)
+    process (state_dp, dbg_end, pdi_ready, sdi_ready, Counter_DP, pdo_valid, status_ready, verify_pdi_ready, verify_pdo_valid, verify_status_ready, pdo_data, pdo_last, tmp_douta, tmp_doutb, Rand_DP, lowmc_cipher, lowmc_finish)
     begin
         Rst_RI <= '0'; 
         pdi_valid <= '0';
@@ -202,9 +232,20 @@ begin
         tmp_web <= '0';
 
         Counter_DN <= Counter_DP;
-
+        Rand_DN <= Rand_DP;
+        
+        lowmc_plain <= (others => '0');
+        lowmc_key <= (others => '0');
+        lowmc_inst <=  '0';
+        
+        
         case state_dp is
             when init =>
+                Rand_DN <= (others => '0');
+            when rand0 =>
+                lowmc_inst <= '1';
+                lowmc_plain <= PL xor Rand_DP;
+                lowmc_key <= KE xor Rand_DP;
             when start =>
                 pdi_data <= I_LDPRIVKEY & pad_112;
                 pdi_valid <= '1';
@@ -212,13 +253,13 @@ begin
                 sdi_data <= L1_H_PRIV & pad_32;
                 sdi_valid <= '1';
             when start1 =>
-                sdi_data <= KE(N - 1 downto N - SDI_WIDTH);
+                sdi_data <= KE(N - 1 downto N - SDI_WIDTH) xor Rand_DP(N - 1 downto N - SDI_WIDTH);
                 sdi_valid <= '1';
             when start2 =>
-                sdi_data <= KE(N - SDI_WIDTH - 1 downto N - 2 * SDI_WIDTH);
+                sdi_data <= KE(N - SDI_WIDTH - 1 downto N - 2 * SDI_WIDTH) xor Rand_DP(N - SDI_WIDTH - 1 downto N - 2 * SDI_WIDTH);
                 sdi_valid <= '1';
             when start3 =>
-                sdi_data(SDI_WIDTH - 1) <= KE(0);
+                sdi_data(SDI_WIDTH - 1) <= KE(0) xor Rand_DP(0);
                 sdi_valid <= '1';
             when start4 =>
                 pdi_data <= L1_H_PUB & pad_96;
@@ -226,24 +267,24 @@ begin
                 verify_pdi_data <= L1_H_PUB & pad_96;
                 verify_pdi_valid <= '1';
             when start5 =>
-                pdi_data <= CI(N - 1 downto N - PDI_WIDTH);
+                pdi_data <= lowmc_cipher(N - 1 downto N - PDI_WIDTH);
                 pdi_valid <= '1';
-                verify_pdi_data <= CI(N - 1 downto N - PDI_WIDTH);
+                verify_pdi_data <= lowmc_cipher(N - 1 downto N - PDI_WIDTH);
                 verify_pdi_valid <= '1';
             when start6 =>
-                pdi_data(SDI_WIDTH - 1) <= CI(0);
+                pdi_data(SDI_WIDTH - 1) <= lowmc_cipher(0);
                 pdi_valid <= '1';
-                verify_pdi_data(SDI_WIDTH - 1) <= CI(0);
+                verify_pdi_data(SDI_WIDTH - 1) <= lowmc_cipher(0);
                 verify_pdi_valid <= '1';
             when start7 =>
-                pdi_data <= PL(N - 1 downto N - PDI_WIDTH);
+                pdi_data <= PL(N - 1 downto N - PDI_WIDTH) xor Rand_DP(N - 1 downto N - PDI_WIDTH);
                 pdi_valid <= '1';
-                verify_pdi_data <= PL(N - 1 downto N - PDI_WIDTH);
+                verify_pdi_data <= PL(N - 1 downto N - PDI_WIDTH) xor Rand_DP(N - 1 downto N - PDI_WIDTH);
                 verify_pdi_valid <= '1';
             when start8 =>
-                pdi_data(PDI_WIDTH - 1) <= PL(0);
+                pdi_data(PDI_WIDTH - 1) <= PL(0) xor Rand_DP(0);
                 pdi_valid <= '1';
-                verify_pdi_data(PDI_WIDTH - 1) <= PL(0);
+                verify_pdi_data(PDI_WIDTH - 1) <= PL(0) xor Rand_DP(0);
                 verify_pdi_valid <= '1';
             when start9 =>
                 pdi_data <= I_SGN & pad_112;
@@ -286,6 +327,7 @@ begin
                     tmp_wea <= '1';
                     tmp_web <= '1';
                     Counter_DN <= Counter_DP + 1;
+                    Rand_DN(N - 1 downto N - PDI_WIDTH) <= tmp_dina & tmp_dinb;
                 end if;
             when start16 =>
                 Counter_DN <= 0;
@@ -314,13 +356,19 @@ begin
     end process;
 
     
-    process (state_dp, dbg_end, pdi_ready, sdi_ready, pdo_valid, status_ready, pdo_last)
+    process (state_dp, dbg_end, pdi_ready, sdi_ready, pdo_valid, status_ready, pdo_last, verify_pdo_last, lowmc_finish)
     begin
         state_dn <= state_dp;
 
         case state_dp is
             when init =>
-                state_dn <= start;
+                state_dn <= rand0;
+            when rand0 =>
+                state_dn <= rand1;
+            when rand1 =>
+                if lowmc_finish = '1' then
+                    state_dn <= start;
+                end if;
             when start =>
                 if pdi_ready = '1' then
                     state_dn <= start0;
@@ -395,7 +443,10 @@ begin
             when start16 =>
                 state_dn <= s_end;
             when s_end => 
-                null;
+                if verify_pdo_last = '1' then
+                    state_dn <= init;
+                end if;
+                
             when others =>
                 null; 
         end case;
@@ -407,9 +458,11 @@ begin
             if Rst_RI = '1' then               -- synchronous reset (active high)
                 State_DP           <= init;
                 Counter_DP <= 0;
+                Rand_DP <= (others => '0');
             else
                 State_DP           <= State_DN;
                 Counter_DP <= Counter_DN;
+                Rand_DP <= Rand_DN;
             end if;
         end if;
     end process;
